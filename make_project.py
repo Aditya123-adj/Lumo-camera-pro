@@ -183,10 +183,15 @@ class MainActivity : ComponentActivity() {
     private var minZ = 1f
     private var maxZ = 1f
     private var lastUri: Uri? = null
-    private val vqList = listOf(
-        Triple("HD 30", Quality.HD, 30), Triple("FHD 30", Quality.FHD, 30), Triple("FHD 60", Quality.FHD, 60),
-        Triple("4K 30", Quality.UHD, 30), Triple("4K 60", Quality.UHD, 60)
-    )
+    
+// CameraX will use a supported frame rate for the selected quality.
+// Avoid forcing 4K 60 FPS on devices that cannot support it.
+private val vqList = listOf(
+    Triple("HD", Quality.HD, 0),
+    Triple("FHD", Quality.FHD, 0),
+    Triple("4K", Quality.UHD, 0)
+)
+
     private val yellow = Color.rgb(255, 214, 10)
 
     private val reqPerm = registerForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { r ->
@@ -439,7 +444,7 @@ class MainActivity : ComponentActivity() {
         val pr = provider ?: return
         pr.unbindAll()
         var sel = if (front) CameraSelector.DEFAULT_FRONT_CAMERA else CameraSelector.DEFAULT_BACK_CAMERA
-        val preview = Preview.Builder().build().also { it.setSurfaceProvider(pv.surfaceProvider) }
+        videoCap = VideoCapture.Builder(rec).build()
         try {
             if (mode == M.VIDEO) {
                 val q = vqList[vq]
