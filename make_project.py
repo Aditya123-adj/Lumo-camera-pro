@@ -359,7 +359,7 @@ class MainActivity : ComponentActivity() {
         })
         modeRow = object : LinearLayout(this) {
             override fun onInterceptTouchEvent(e: MotionEvent): Boolean { gdm.onTouchEvent(e); return false }
-        }.apply { orientation = HORIZONTAL; gravity = Gravity.CENTER }
+        }.apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER }
         glass(modeRow, 30)
         bottom.addView(modeRow, LinearLayout.LayoutParams(-2, -2).apply { bottomMargin = dp(26) })
         root.addView(bottom, FrameLayout.LayoutParams(-1, -2).apply { gravity = Gravity.BOTTOM })
