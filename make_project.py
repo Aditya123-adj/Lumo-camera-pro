@@ -129,6 +129,8 @@ import androidx.camera.core.FocusMeteringAction
 import androidx.camera.core.ImageCapture
 import androidx.camera.core.ImageCaptureException
 import androidx.camera.core.Preview
+import androidx.camera.core.resolutionselector.ResolutionSelector
+import androidx.camera.core.resolutionselector.ResolutionStrategy
 import androidx.camera.extensions.ExtensionMode
 import androidx.camera.extensions.ExtensionsManager
 import androidx.camera.lifecycle.ProcessCameraProvider
@@ -440,34 +442,110 @@ private val vqList = listOf(
         }, main)
     }
 
-    private fun bind() {
-        val pr = provider ?: return
-        pr.unbindAll()
-        var sel = if (front) CameraSelector.DEFAULT_FRONT_CAMERA else CameraSelector.DEFAULT_BACK_CAMERA
-        videoCap = VideoCapture.Builder(rec).build()
-        try {
-            if (mode == M.VIDEO) {
-                val q = vqList[vq]
-                val rec = Recorder.Builder().setQualitySelector(QualitySelector.from(q.second, FallbackStrategy.lowerQualityOrHigherThan(q.second))).build()
-                videoCap = VideoCapture.Builder(rec).setTargetFrameRate(Range(q.third, q.third)).build()
-                camera = pr.bindToLifecycle(this, sel, preview, videoCap!!)
-            } else {
-                val e = ext
-                if (e != null && mode == M.PORTRAIT && has(ExtensionMode.BOKEH)) sel = e.getExtensionEnabledCameraSelector(sel, ExtensionMode.BOKEH)
-                if (e != null && mode == M.NIGHT && has(ExtensionMode.NIGHT)) sel = e.getExtensionEnabledCameraSelector(sel, ExtensionMode.NIGHT)
-                imageCap = ImageCapture.Builder().setCaptureMode(ImageCapture.CAPTURE_MODE_MAXIMIZE_QUALITY)
-                    .setFlashMode(listOf(ImageCapture.FLASH_MODE_OFF, ImageCapture.FLASH_MODE_ON, ImageCapture.FLASH_MODE_AUTO)[flash]).build()
-                camera = pr.bindToLifecycle(this, sel, preview, imageCap!!)
-            }
-        } catch (t: Throwable) {
-            info("Camera mode start nahi hua"); return
-        }
-        val zl = camera!!.cameraInfo.zoomState
-        zl.removeObservers(this)
-        zl.observe(this) { zs ->
-            zoom = zs.zoomRatio; minZ = zs.minZoomRatio; maxZ = zs.maxZoomRatio; paintZoom()
-        }
+
+private fun bind() {
+    val pr = provider ?: return
+    pr.unbindAll()
+
+    var sel = if (front) {
+        CameraSelector.DEFAULT_FRONT_CAMERA
+    } else {
+        CameraSelector.DEFAULT_BACK_CAMERA
     }
+
+    // Camera preview
+    val preview = Preview.Builder()
+        .build()
+        .also {
+            it.setSurfaceProvider(pv.surfaceProvider)
+        }
+
+    try {
+        if (mode == M.VIDEO) {
+            val q = vqList[vq]
+
+            val recorder = Recorder.Builder()
+                .setQualitySelector(
+                    QualitySelector.from(
+                        q.second,
+                        FallbackStrategy.lowerQualityOrHigherThan(q.second)
+                    )
+                )
+                .build()
+
+            videoCap = VideoCapture.withOutput(recorder)
+
+            camera = pr.bindToLifecycle(
+                this,
+                sel,
+                preview,
+                videoCap!!
+            )
+
+        } else {
+            val e = ext
+
+            if (e != null && mode == M.PORTRAIT &&
+                has(ExtensionMode.BOKEH)) {
+                sel = e.getExtensionEnabledCameraSelector(
+                    sel,
+                    ExtensionMode.BOKEH
+                )
+            }
+
+            if (e != null && mode == M.NIGHT &&
+                has(ExtensionMode.NIGHT)) {
+                sel = e.getExtensionEnabledCameraSelector(
+                    sel,
+                    ExtensionMode.NIGHT
+                )
+            }
+
+            val highResSelector = ResolutionSelector.Builder()
+                .setResolutionStrategy(
+                    ResolutionStrategy.HIGHEST_AVAILABLE_STRATEGY
+                )
+                .build()
+
+            imageCap = ImageCapture.Builder()
+                .setCaptureMode(
+                    ImageCapture.CAPTURE_MODE_MAXIMIZE_QUALITY
+                )
+                .setJpegQuality(100)
+                .setResolutionSelector(highResSelector)
+                .setFlashMode(
+                    listOf(
+                        ImageCapture.FLASH_MODE_OFF,
+                        ImageCapture.FLASH_MODE_ON,
+                        ImageCapture.FLASH_MODE_AUTO
+                    )[flash]
+                )
+                .build()
+
+            camera = pr.bindToLifecycle(
+                this,
+                sel,
+                preview,
+                imageCap!!
+            )
+        }
+
+    } catch (t: Throwable) {
+        info("Camera mode start nahi hua")
+        return
+    }
+
+    val zl = camera!!.cameraInfo.zoomState
+    zl.removeObservers(this)
+
+    zl.observe(this) { zs ->
+        zoom = zs.zoomRatio
+        minZ = zs.minZoomRatio
+        maxZ = zs.maxZoomRatio
+        paintZoom()
+    }
+}
+
 
     private fun paintZoom() {
         val presets = listOf(0.5f, 1f, 2f)
