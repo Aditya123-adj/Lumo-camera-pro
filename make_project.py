@@ -203,13 +203,23 @@ class MainActivity : ComponentActivity() {
 
     private fun dp(n: Int) = (n * resources.displayMetrics.density).toInt()
 
-    private fun glass(v: View, r: Int = 40) {
-        v.background = GradientDrawable().apply {
-            cornerRadius = dp(r).toFloat()
-            setColor(Color.argb(55, 255, 255, 255))
-            setStroke(dp(1), Color.argb(120, 255, 255, 255))
-        }
+    
+private fun glass(v: View, r: Int = 40) {
+    v.background = GradientDrawable(
+        GradientDrawable.Orientation.TOP_BOTTOM,
+        intArrayOf(
+            Color.argb(105, 255, 255, 255),
+            Color.argb(38, 255, 255, 255),
+            Color.argb(65, 255, 255, 255)
+        )
+    ).apply {
+        cornerRadius = dp(r).toFloat()
+        setStroke(dp(1), Color.argb(155, 255, 255, 255))
     }
+
+    v.elevation = dp(8).toFloat()
+}
+
 
     private fun tv(t: String, size: Float = 12f) = TextView(this).apply {
         text = t; setTextColor(Color.WHITE); textSize = size; typeface = Typeface.DEFAULT_BOLD
