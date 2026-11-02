@@ -186,13 +186,11 @@ class MainActivity : ComponentActivity() {
     private var maxZ = 1f
     private var lastUri: Uri? = null
     
-// CameraX will use a supported frame rate for the selected quality.
-// Avoid forcing 4K 60 FPS on devices that cannot support it.
-private val vqList = listOf(
-    Triple("HD", Quality.HD, 0),
-    Triple("FHD", Quality.FHD, 0),
-    Triple("4K", Quality.UHD, 0)
-)
+    private val vqList = listOf(
+        Triple("HD 30", Quality.HD, 30),
+        Triple("FHD 30", Quality.FHD, 30),
+        Triple("4K 30", Quality.UHD, 30)
+    )
 
     private val yellow = Color.rgb(255, 214, 10)
 
@@ -453,15 +451,13 @@ private fun bind() {
         CameraSelector.DEFAULT_BACK_CAMERA
     }
 
-    // Camera preview
+        // Keep preview framing consistent with common video aspect ratio.
     val preview = Preview.Builder()
+        .setTargetAspectRatio(androidx.camera.core.AspectRatio.RATIO_16_9)
         .build()
         .also {
             it.setSurfaceProvider(pv.surfaceProvider)
         }
-
-    try {
-        if (mode == M.VIDEO) {
             val q = vqList[vq]
 
             val recorder = Recorder.Builder()
@@ -535,13 +531,21 @@ private fun bind() {
         return
     }
 
-    val zl = camera!!.cameraInfo.zoomState
+    (this)
+    val boundCamera = camera ?: return
+    val zl = boundCamera.cameraInfo.zoomState
     zl.removeObservers(this)
 
     zl.observe(this) { zs ->
-        zoom = zs.zoomRatio
         minZ = zs.minZoomRatio
         maxZ = zs.maxZoomRatio
+
+        zoom = zoom.coerceIn(minZ, maxZ)
+
+        if (kotlin.math.abs(zs.zoomRatio - zoom) > 0.03f) {
+            boundCamera.cameraControl.setZoomRatio(zoom)
+        }
+
         paintZoom()
     }
 }
