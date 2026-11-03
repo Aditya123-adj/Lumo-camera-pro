@@ -566,3 +566,84 @@ class MainActivity : ComponentActivity() {
         }
     }
 }
+"""
+
+# Write MainActivity.kt
+w(
+    'app/src/main/java/com/lumo/cam/MainActivity.kt',
+    main_kt_code
+)
+
+# Generate launcher icon
+def png_chunk(tag, data):
+    body = tag + data
+    return (
+        struct.pack('>I', len(data))
+        + body
+        + struct.pack('>I', zlib.crc32(body) & 0xffffffff)
+    )
+
+def make_icon(size):
+    pixels = bytearray()
+
+    cx = size / 2
+    cy = size / 2
+    scale = size / 48
+
+    for y in range(size):
+        pixels.append(0)
+
+        for x in range(size):
+            dx = (x - cx) / scale
+            dy = (y - cy) / scale
+            r = (dx * dx + dy * dy) ** 0.5
+
+            # Dark premium background
+            red = 13
+            green = 15
+            blue = 25
+
+            # Outer camera lens
+            if 11 <= r <= 17:
+                red, green, blue = 255, 214, 10
+
+            # Inner lens
+            elif r < 10:
+                red, green, blue = 35, 39, 55
+
+            # Center highlight
+            if r < 4:
+                red, green, blue = 255, 255, 255
+
+            pixels.extend((red, green, blue, 255))
+
+    raw = bytes(pixels)
+
+    header = struct.pack(
+        '>2I5B',
+        size, size, 8, 6, 0, 0, 0
+    )
+
+    return (
+        b'\x89PNG\r\n\x1a\n'
+        + png_chunk(b'IHDR', header)
+        + png_chunk(b'IDAT', zlib.compress(raw, 9))
+        + png_chunk(b'IEND', b'')
+    )
+
+icon_sizes = {
+    'mipmap-mdpi': 48,
+    'mipmap-hdpi': 72,
+    'mipmap-xhdpi': 96,
+    'mipmap-xxhdpi': 144,
+    'mipmap-xxxhdpi': 192,
+}
+
+for folder, size in icon_sizes.items():
+    path = f'app/src/main/res/{folder}/ic_launcher.png'
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+
+    with open(path, 'wb') as f:
+        f.write(make_icon(size))
+
+print("Lumo Camera project generated successfully!")
