@@ -4,7 +4,7 @@ def w(path, text):
     os.makedirs(os.path.dirname(path) or '.', exist_ok=True)
     open(path, 'w', encoding='utf-8').write(text)
 
-w('settings.gradle', r'''pluginManagement {
+w('settings.gradle', '''pluginManagement {
     repositories {
         google()
         mavenCentral()
@@ -21,17 +21,20 @@ dependencyResolutionManagement {
 rootProject.name = "LumoCamera"
 include(":app")
 ''')
-w('build.gradle', r'''plugins {
+
+w('build.gradle', '''plugins {
     id 'com.android.application' version '8.5.2' apply false
     id 'org.jetbrains.kotlin.android' version '1.9.24' apply false
 }
 ''')
+
 w('gradle.properties', '''org.gradle.jvmargs=-Xmx3g
 android.useAndroidX=true
 android.nonTransitiveRClass=true
 kotlin.code.style=official
 ''')
-w('app/build.gradle', r'''plugins {
+
+w('app/build.gradle', '''plugins {
     id 'com.android.application'
     id 'org.jetbrains.kotlin.android'
 }
@@ -65,7 +68,8 @@ dependencies {
     implementation "androidx.camera:camera-extensions:$camerax"
 }
 ''')
-w('app/src/main/AndroidManifest.xml', r'''<?xml version="1.0" encoding="utf-8"?>
+
+w('app/src/main/AndroidManifest.xml', '''<?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
     <uses-permission android:name="android.permission.CAMERA"/>
     <uses-permission android:name="android.permission.RECORD_AUDIO"/>
@@ -90,7 +94,8 @@ w('app/src/main/AndroidManifest.xml', r'''<?xml version="1.0" encoding="utf-8"?>
     </application>
 </manifest>
 ''')
-w('app/src/main/java/com/lumo/cam/MainActivity.kt', r'''package com.lumo.cam
+
+main_kt_code = r"""package com.lumo.cam
 
 import android.Manifest
 import android.annotation.SuppressLint
@@ -404,4 +409,4 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun visibleModes() = M.values().filter {
-  
+        (it != M.PORTRAIT || has(Exten
