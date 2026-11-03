@@ -129,8 +129,6 @@ import androidx.camera.core.FocusMeteringAction
 import androidx.camera.core.ImageCapture
 import androidx.camera.core.ImageCaptureException
 import androidx.camera.core.Preview
-import androidx.camera.core.resolutionselector.ResolutionSelector
-import androidx.camera.core.resolutionselector.ResolutionStrategy
 import androidx.camera.extensions.ExtensionMode
 import androidx.camera.extensions.ExtensionsManager
 import androidx.camera.lifecycle.ProcessCameraProvider
@@ -185,13 +183,10 @@ class MainActivity : ComponentActivity() {
     private var minZ = 1f
     private var maxZ = 1f
     private var lastUri: Uri? = null
-    
     private val vqList = listOf(
-        Triple("HD 30", Quality.HD, 30),
-        Triple("FHD 30", Quality.FHD, 30),
-        Triple("4K 30", Quality.UHD, 30)
+        Triple("HD 30", Quality.HD, 30), Triple("FHD 30", Quality.FHD, 30), Triple("FHD 60", Quality.FHD, 60),
+        Triple("4K 30", Quality.UHD, 30), Triple("4K 60", Quality.UHD, 60)
     )
-
     private val yellow = Color.rgb(255, 214, 10)
 
     private val reqPerm = registerForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { r ->
@@ -203,23 +198,13 @@ class MainActivity : ComponentActivity() {
 
     private fun dp(n: Int) = (n * resources.displayMetrics.density).toInt()
 
-    
-private fun glass(v: View, r: Int = 40) {
-    v.background = GradientDrawable(
-        GradientDrawable.Orientation.TOP_BOTTOM,
-        intArrayOf(
-            Color.argb(105, 255, 255, 255),
-            Color.argb(38, 255, 255, 255),
-            Color.argb(65, 255, 255, 255)
-        )
-    ).apply {
-        cornerRadius = dp(r).toFloat()
-        setStroke(dp(1), Color.argb(155, 255, 255, 255))
+    private fun glass(v: View, r: Int = 40) {
+        v.background = GradientDrawable().apply {
+            cornerRadius = dp(r).toFloat()
+            setColor(Color.argb(55, 255, 255, 255))
+            setStroke(dp(1), Color.argb(120, 255, 255, 255))
+        }
     }
-
-    v.elevation = dp(8).toFloat()
-}
-
 
     private fun tv(t: String, size: Float = 12f) = TextView(this).apply {
         text = t; setTextColor(Color.WHITE); textSize = size; typeface = Typeface.DEFAULT_BOLD
@@ -374,7 +359,7 @@ private fun glass(v: View, r: Int = 40) {
         })
         modeRow = object : LinearLayout(this) {
             override fun onInterceptTouchEvent(e: MotionEvent): Boolean { gdm.onTouchEvent(e); return false }
-        }.apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER }
+        }.apply { orientation = HORIZONTAL; gravity = Gravity.CENTER }
         glass(modeRow, 30)
         bottom.addView(modeRow, LinearLayout.LayoutParams(-2, -2).apply { bottomMargin = dp(26) })
         root.addView(bottom, FrameLayout.LayoutParams(-1, -2).apply { gravity = Gravity.BOTTOM })
@@ -419,265 +404,4 @@ private fun glass(v: View, r: Int = 40) {
     }
 
     private fun visibleModes() = M.values().filter {
-        (it != M.PORTRAIT || has(ExtensionMode.BOKEH)) && (it != M.NIGHT || has(ExtensionMode.NIGHT))
-    }
-
-    private fun refreshModes() {
-        modeRow.removeAllViews()
-        for (m in visibleModes()) modeRow.addView(tv(m.label).apply {
-            setTextColor(if (m == mode) yellow else Color.WHITE)
-            setOnClickListener { setMode(m) }
-        })
-    }
-
-    private fun setMode(m: M) {
-        if (recording != null || m == mode) return
-        mode = m
-        val pose = m == M.POSE
-        poseBar.visibility = if (pose) View.VISIBLE else View.GONE
-        poseImg.visibility = if (pose && poseImg.drawable != null) View.VISIBLE else View.GONE
-        qT.visibility = if (m == M.VIDEO) View.VISIBLE else View.GONE
-        (inner.background as GradientDrawable).setColor(if (m == M.VIDEO) Color.rgb(255, 69, 58) else Color.WHITE)
-        refreshModes(); bind()
-    }
-
-    private fun startCamera() {
-        val f = ProcessCameraProvider.getInstance(this)
-        f.addListener({
-            provider = f.get()
-            val ef = ExtensionsManager.getInstanceAsync(this, provider!!)
-            ef.addListener({ ext = ef.get(); refreshModes(); bind() }, main)
-        }, main)
-    }
-
-
-private fun bind() {
-    val pr = provider ?: return
-    pr.unbindAll()
-
-    var sel = if (front) {
-        CameraSelector.DEFAULT_FRONT_CAMERA
-    } else {
-        CameraSelector.DEFAULT_BACK_CAMERA
-    }
-
-        // Keep preview framing consistent with common video aspect ratio.
-    val preview = Preview.Builder()
-        .setTargetAspectRatio(androidx.camera.core.AspectRatio.RATIO_16_9)
-        .build()
-        .also {
-            it.setSurfaceProvider(pv.surfaceProvider)
-        }
-            val q = vqList[vq]
-
-            val recorder = Recorder.Builder()
-                .setQualitySelector(
-                    QualitySelector.from(
-                        q.second,
-                        FallbackStrategy.lowerQualityOrHigherThan(q.second)
-                    )
-                )
-                .build()
-
-            videoCap = VideoCapture.withOutput(recorder)
-
-            camera = pr.bindToLifecycle(
-                this,
-                sel,
-                preview,
-                videoCap!!
-            )
-
-        } else {
-            val e = ext
-
-            if (e != null && mode == M.PORTRAIT &&
-                has(ExtensionMode.BOKEH)) {
-                sel = e.getExtensionEnabledCameraSelector(
-                    sel,
-                    ExtensionMode.BOKEH
-                )
-            }
-
-            if (e != null && mode == M.NIGHT &&
-                has(ExtensionMode.NIGHT)) {
-                sel = e.getExtensionEnabledCameraSelector(
-                    sel,
-                    ExtensionMode.NIGHT
-                )
-            }
-
-            val highResSelector = ResolutionSelector.Builder()
-                .setResolutionStrategy(
-                    ResolutionStrategy.HIGHEST_AVAILABLE_STRATEGY
-                )
-                .build()
-
-            imageCap = ImageCapture.Builder()
-                .setCaptureMode(
-                    ImageCapture.CAPTURE_MODE_MAXIMIZE_QUALITY
-                )
-                .setJpegQuality(100)
-                .setResolutionSelector(highResSelector)
-                .setFlashMode(
-                    listOf(
-                        ImageCapture.FLASH_MODE_OFF,
-                        ImageCapture.FLASH_MODE_ON,
-                        ImageCapture.FLASH_MODE_AUTO
-                    )[flash]
-                )
-                .build()
-
-            camera = pr.bindToLifecycle(
-                this,
-                sel,
-                preview,
-                imageCap!!
-            )
-        }
-
-    } catch (t: Throwable) {
-        info("Camera mode start nahi hua")
-        return
-    }
-
-    (this)
-    val boundCamera = camera ?: return
-    val zl = boundCamera.cameraInfo.zoomState
-    zl.removeObservers(this)
-
-    zl.observe(this) { zs ->
-        minZ = zs.minZoomRatio
-        maxZ = zs.maxZoomRatio
-
-        zoom = zoom.coerceIn(minZ, maxZ)
-
-        if (kotlin.math.abs(zs.zoomRatio - zoom) > 0.03f) {
-            boundCamera.cameraControl.setZoomRatio(zoom)
-        }
-
-        paintZoom()
-    }
-}
-
-
-    private fun paintZoom() {
-        val presets = listOf(0.5f, 1f, 2f)
-        var act = 0
-        presets.forEachIndexed { i, p -> if (zoom >= p - 0.01f) act = i }
-        for (i in 0 until lensRow.childCount) {
-            val t = lensRow.getChildAt(i) as TextView
-            val isAct = i == act
-            t.text = if (isAct && Math.abs(zoom - presets[i]) > 0.05f) String.format("%.1f", zoom) else listOf("0.5", "1", "2")[i]
-            t.setTextColor(if (isAct) yellow else Color.WHITE)
-        }
-    }
-
-    private fun onShutter() {
-        if (mode == M.VIDEO) { toggleRecord(); return }
-        if (timerS == 0) { takePhoto(); return }
-        var n = timerS
-        count.visibility = View.VISIBLE
-        val tick = object : Runnable {
-            override fun run() {
-                if (n > 0) { count.text = n.toString(); n--; handler.postDelayed(this, 1000) }
-                else { count.visibility = View.GONE; takePhoto() }
-            }
-        }
-        tick.run()
-    }
-
-    private fun takePhoto() {
-        val ic = imageCap ?: return
-        val cv = ContentValues().apply {
-            put(MediaStore.MediaColumns.DISPLAY_NAME, "IMG_" + System.currentTimeMillis())
-            put(MediaStore.MediaColumns.MIME_TYPE, "image/jpeg")
-            put(MediaStore.MediaColumns.RELATIVE_PATH, "Pictures/Lumo")
-        }
-        val o = ImageCapture.OutputFileOptions.Builder(contentResolver, MediaStore.Images.Media.EXTERNAL_CONTENT_URI, cv).build()
-        pv.animate().alpha(0.3f).setDuration(70).withEndAction { pv.animate().alpha(1f).setDuration(120).start() }.start()
-        ic.takePicture(o, main, object : ImageCapture.OnImageSavedCallback {
-            override fun onImageSaved(r: ImageCapture.OutputFileResults) { r.savedUri?.let { setThumb(it) } }
-            override fun onError(e: ImageCaptureException) { info("Photo save nahi hui") }
-        })
-    }
-
-    @SuppressLint("MissingPermission")
-    private fun toggleRecord() {
-        val r = recording
-        if (r != null) { r.stop(); return }
-        val vc = videoCap ?: return
-        val cv = ContentValues().apply {
-            put(MediaStore.MediaColumns.DISPLAY_NAME, "VID_" + System.currentTimeMillis())
-            put(MediaStore.MediaColumns.MIME_TYPE, "video/mp4")
-            put(MediaStore.MediaColumns.RELATIVE_PATH, "Movies/Lumo")
-        }
-        val mo = MediaStoreOutputOptions.Builder(contentResolver, MediaStore.Video.Media.EXTERNAL_CONTENT_URI).setContentValues(cv).build()
-        var p = vc.output.prepareRecording(this, mo)
-        if (checkSelfPermission(Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED) p = p.withAudioEnabled()
-        if (flash == 1) camera?.cameraControl?.enableTorch(true)
-        inner.animate().scaleX(0.5f).scaleY(0.5f).setDuration(200).start()
-        recording = p.start(main) { ev ->
-            if (ev is VideoRecordEvent.Finalize) {
-                recording = null
-                camera?.cameraControl?.enableTorch(false)
-                inner.animate().scaleX(1f).scaleY(1f).setDuration(200).start()
-                if (!ev.hasError()) setThumb(ev.outputResults.outputUri) else info("Video save nahi hui")
-            }
-        }
-    }
-
-    private fun setThumb(u: Uri) {
-        lastUri = u
-        try { thumb.setImageBitmap(contentResolver.loadThumbnail(u, Size(220, 220), null)) } catch (t: Throwable) { }
-        thumb.animate().scaleX(1.25f).scaleY(1.25f).setDuration(150).withEndAction { thumb.animate().scaleX(1f).scaleY(1f).setDuration(200).start() }.start()
-    }
-
-    inner class ArcView : View(this@MainActivity) {
-        var f = 0f
-        private val p = Paint(Paint.ANTI_ALIAS_FLAG)
-        override fun onDraw(c: Canvas) {
-            val w = width.toFloat(); val h = height.toFloat()
-            val r = w * 0.8f; val cx = w / 2; val cy = h * 0.9f + r - h * 0.5f
-            p.style = Paint.Style.FILL; p.color = Color.argb(110, 0, 0, 0); c.drawCircle(cx, cy, r, p)
-            p.style = Paint.Style.STROKE; p.strokeWidth = 3f; p.color = Color.argb(170, 255, 255, 255); c.drawCircle(cx, cy, r, p)
-            p.textAlign = Paint.Align.CENTER; p.textSize = 30f; p.style = Paint.Style.FILL
-            for (z in listOf(0.5f, 1f, 2f, 3f, 5f, 10f)) {
-                val a = Math.toRadians(-140.0 + 100.0 * (ln(z / 0.5f) / ln(20f)))
-                val x1 = cx + (r * cos(a)).toFloat(); val y1 = cy + (r * sin(a)).toFloat()
-                val x2 = cx + ((r - 22) * cos(a)).toFloat(); val y2 = cy + ((r - 22) * sin(a)).toFloat()
-                p.strokeWidth = 3f; p.color = Color.WHITE; c.drawLine(x1, y1, x2, y2, p)
-                val x3 = cx + ((r - 56) * cos(a)).toFloat(); val y3 = cy + ((r - 56) * sin(a)).toFloat()
-                c.drawText(if (z == 0.5f) ".5" else z.toInt().toString(), x3, y3, p)
-            }
-            val a = Math.toRadians(-140.0 + 100.0 * f)
-            p.color = yellow
-            c.drawCircle(cx + ((r - 11) * cos(a)).toFloat(), cy + ((r - 11) * sin(a)).toFloat(), 11f, p)
-            p.textSize = 44f
-            c.drawText(String.format("%.1fx", 0.5f * 20f.pow(f)), w / 2, h * 0.32f, p)
-        }
-    }
-}
-''')
-
-def png(n):
-    raw = bytearray()
-    c = n / 2.0
-    for y in range(n):
-        raw.append(0)
-        for x in range(n):
-            d = ((x - c) ** 2 + (y - c) ** 2) ** .5
-            if .31 * n <= d <= .37 * n: px = (255, 214, 10, 255)
-            elif d <= .09 * n: px = (40, 40, 60, 255)
-            elif d <= .2 * n: px = (255, 255, 255, 255)
-            else: px = (28, 28, 46, 255)
-            raw.extend(px)
-    def ch(t, data):
-        cc = struct.pack('>I', len(data)) + t + data
-        return cc + struct.pack('>I', zlib.crc32(t + data) & 0xffffffff)
-    return b'\x89PNG\r\n\x1a\n' + ch(b'IHDR', struct.pack('>IIBBBBB', n, n, 8, 6, 0, 0, 0)) + ch(b'IDAT', zlib.compress(bytes(raw), 9)) + ch(b'IEND', b'')
-
-for d in ('mipmap-xxxhdpi', 'mipmap-xhdpi', 'mipmap-mdpi'):
-    os.makedirs('app/src/main/res/' + d, exist_ok=True)
-    open('app/src/main/res/' + d + '/ic_launcher.png', 'wb').write(png(192))
-print('Native project generated')
+  
